@@ -7,7 +7,7 @@ from sklearn.linear_model import LogisticRegression
 # -------------------------
 # 🔑 Configure Gemini API using Streamlit Secrets
 # -------------------------
-genai.configure(api_key=st.secrets["AIzaSyA02sTLOcQu22DFGu-lCO7QeyBHjKZmQPk"])
+genai.configure(api_key=st.secrets["gemini_api_key"])
 gemini_model = genai.GenerativeModel("gemini-1.5-flash")
 
 # -------------------------
