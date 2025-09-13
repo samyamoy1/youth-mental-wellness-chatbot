@@ -5,9 +5,9 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 
 # -------------------------
-# 🔑 Configure Gemini API
+# 🔑 Configure Gemini API using Streamlit Secrets
 # -------------------------
-genai.configure(api_key=st.secrets["AIzaSyCotmgkZL0t46olOAcoMMJR1fJKoEvqFPE"])
+genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 gemini_model = genai.GenerativeModel("gemini-1.5-flash")
 
 # -------------------------
@@ -59,7 +59,6 @@ st.set_page_config(page_title="Youth Mental Wellness Chatbot", page_icon="🧠",
 st.title("🧠 Youth Mental Wellness Chatbot")
 st.write("An AI-powered, confidential, and empathetic chatbot for youth mental health support.")
 
-# User input
 user_input = st.text_area("💬 How are you feeling today?", "")
 
 if st.button("Send"):
