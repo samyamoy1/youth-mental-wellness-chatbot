@@ -53,21 +53,19 @@ def predict_mood(user_input: str) -> str:
 st.set_page_config(page_title="Youth Mental Wellness Chatbot", page_icon="🧠", layout="wide")
 st.title("🧠 Youth Mental Wellness Chatbot")
 
-# Initialize session state for chat history & summarized memory
+# Initialize session state for chat memory
 if "chat_memory" not in st.session_state:
-    st.session_state.chat_memory = []  # stores last N messages or summarized context
+    st.session_state.chat_memory = []
 
-MAX_MEMORY = 5  # Keep only the last 5 messages in memory to save space
+MAX_MEMORY = 5  # store only last 5 mood-related messages
 
 def get_context():
     """Combine last few messages as context for Gemini."""
     return "\n".join([f"User: {m['user']}\nBot: {m['bot']}" for m in st.session_state.chat_memory])
 
 def chat_with_gemini(prompt: str) -> str:
-    """Generate response using Gemini, including summarized context."""
-    context = get_context()
-    full_prompt = context + "\n\n" + prompt if context else prompt
-    response = gemini_model.generate_content(full_prompt)
+    """Generate response using Gemini."""
+    response = gemini_model.generate_content(prompt)
     return response.text
 
 # Input container
@@ -76,30 +74,43 @@ with st.container():
     send_button = st.button("Send")
 
 if send_button and user_input.strip() != "":
-    # ML prediction
+    # Predict mood
     mood = predict_mood(user_input)
 
-    # Generate Gemini response
-    if mood == "wrong_action":
-        prompt = (
-            f"You are a cool, honest mental wellness AI. The user admitted a harmful action: {user_input}. "
-            "Do NOT validate it. Explain why it was wrong and suggest practical ways to improve. "
-            "Be calm, supportive, and actionable."
-        )
+    # Decide how to call Gemini
+    if mood in ["positive", "negative", "wrong_action"]:
+        # Include context for mental wellness advice
+        context = get_context()
+        if mood == "wrong_action":
+            prompt = (
+                f"You are a cool, honest mental wellness AI. The user admitted a harmful action: {user_input}. "
+                "Do NOT validate it. Explain why it was wrong and suggest practical ways to improve. "
+                "Be calm, supportive, and actionable."
+            )
+        else:
+            prompt = (
+                f"You are a cool, improvement-focused mental wellness AI. The user feels {mood}: {user_input}. "
+                "Do NOT just sympathize; provide practical advice or perspective to improve their mental wellness."
+            )
+        full_prompt = context + "\n\n" + prompt if context else prompt
+        reply = chat_with_gemini(full_prompt)
+
+        # Store in memory (only mood-related)
+        st.session_state.chat_memory.append({"user": user_input, "bot": reply, "mood": mood})
+        if len(st.session_state.chat_memory) > MAX_MEMORY:
+            st.session_state.chat_memory.pop(0)
+
     else:
-        prompt = (
-            f"You are a cool, improvement-focused mental wellness AI. The user feels {mood}: {user_input}. "
-            "Do NOT just sympathize; provide practical advice or perspective to improve their mental wellness."
-        )
+        # Treat as factual/general input — no context
+        reply = chat_with_gemini(user_input)
 
-    reply = chat_with_gemini(prompt)
+    # Display current message immediately
+    with st.chat_message("user"):
+        st.markdown(f"**You:** {user_input}")
+    with st.chat_message("assistant"):
+        st.markdown(f"**Bot:** {reply}")
 
-    # Append message to memory (keeping it small)
-    st.session_state.chat_memory.append({"user": user_input, "bot": reply, "mood": mood})
-    if len(st.session_state.chat_memory) > MAX_MEMORY:
-        st.session_state.chat_memory.pop(0)  # remove oldest to save memory
-
-# Display chat dynamically
+# Display chat history
 for chat in st.session_state.chat_memory:
     with st.chat_message("user"):
         st.markdown(f"**You:** {chat['user']}")
