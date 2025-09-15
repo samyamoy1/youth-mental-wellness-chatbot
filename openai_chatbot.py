@@ -57,18 +57,31 @@ st.title("🧠 Youth Mental Wellness Chatbot")
 if "chat_memory" not in st.session_state:
     st.session_state.chat_memory = []
 
-MAX_MEMORY = 10  # store only last 5 mood-related messages
+MAX_MEMORY = 3  # Keep last 3 messages for context
+MAX_CHARS = 200  # Truncate each message to 200 chars
 
 def get_context():
-    """Combine last few messages as context for Gemini."""
-    return "\n".join([f"User: {m['user']}\nBot: {m['bot']}" for m in st.session_state.chat_memory])
+    """Combine last few messages as context for Gemini with truncation."""
+    recent = st.session_state.chat_memory[-MAX_MEMORY:]
+    context = ""
+    for m in recent:
+        user_text = m['user'][:MAX_CHARS]
+        bot_text = m['bot'][:MAX_CHARS]
+        context += f"User: {user_text}\nBot: {bot_text}\n"
+    return context
 
 def chat_with_gemini(prompt: str) -> str:
-    """Generate response using Gemini."""
-    response = gemini_model.generate_content(prompt)
-    return response.text
+    """Generate response using Gemini with error handling."""
+    try:
+        response = gemini_model.generate_content(prompt)
+        return response.text
+    except Exception as e:
+        # Catch ResourceExhausted or other API errors
+        return "⚠️ Sorry, I'm temporarily unable to respond. Please try again."
 
-# Display chat history first
+# -------------------------
+# Display previous chat history
+# -------------------------
 for chat in st.session_state.chat_memory:
     with st.chat_message("user"):
         st.markdown(f"**You:** {chat['user']}")
@@ -76,9 +89,9 @@ for chat in st.session_state.chat_memory:
         st.markdown(f"**Bot:** {chat['bot']}")
 
 # -------------------------
-# 💬 Input container moved to the bottom
+# 💬 Input container
 # -------------------------
-user_input = st.chat_input("💬 Type a message...")
+user_input = st.chat_input("Type a message...")
 
 if user_input:
     # Predict mood
@@ -90,26 +103,32 @@ if user_input:
         context = get_context()
         if mood == "wrong_action":
             prompt = (
-                f"You are a cool, honest mental wellness AI. The user admitted a harmful action: {user_input}. "
-                "Do NOT validate it. Explain why it was wrong and suggest practical ways to improve. "
-                "Be calm, supportive, and actionable."
+                f"You are a calm, supportive mental wellness AI. "
+                f"The user admitted a harmful action: {user_input}. "
+                "Do NOT validate it. Explain why it was wrong and suggest practical ways to improve."
             )
         else:
             prompt = (
-                f"You are a cool, improvement-focused mental wellness AI. The user feels {mood}: {user_input}. "
-                "Do NOT just sympathize; provide practical advice or perspective to improve their mental wellness."
+                f"You are a calm, improvement-focused mental wellness AI. "
+                f"The user feels {mood}: {user_input}. "
+                "Do NOT just sympathize; provide practical advice or perspective to improve mental wellness."
             )
         full_prompt = context + "\n\n" + prompt if context else prompt
         reply = chat_with_gemini(full_prompt)
 
-        # Store in memory (only mood-related)
+        # Store in memory
         st.session_state.chat_memory.append({"user": user_input, "bot": reply, "mood": mood})
-        if len(st.session_state.chat_memory) > MAX_MEMORY:
-            st.session_state.chat_memory.pop(0)
 
     else:
-        # Treat as factual/general input — no context
+        # Treat as factual/general input — no chat context
         reply = chat_with_gemini(user_input)
-    
-    # Rerun the script to display the new messages and clear the input box
-    st.experimental_rerun()
+
+    # Truncate memory if too long
+    if len(st.session_state.chat_memory) > MAX_MEMORY:
+        st.session_state.chat_memory = st.session_state.chat_memory[-MAX_MEMORY:]
+
+    # Display current messages immediately
+    with st.chat_message("user"):
+        st.markdown(f"**You:** {user_input}")
+    with st.chat_message("assistant"):
+        st.markdown(f"**Bot:** {reply}")
