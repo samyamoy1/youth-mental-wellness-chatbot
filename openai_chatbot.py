@@ -47,19 +47,28 @@ def predict_mood(user_input: str) -> str:
     X_test = vectorizer.transform([user_input])
     return ml_model.predict(X_test)[0]
 
-def chat_with_gemini(prompt: str) -> str:
-    response = gemini_model.generate_content(prompt)
-    return response.text
-
 # -------------------------
 # 🌐 Streamlit UI
 # -------------------------
 st.set_page_config(page_title="Youth Mental Wellness Chatbot", page_icon="🧠", layout="wide")
 st.title("🧠 Youth Mental Wellness Chatbot")
 
-# Initialize session state for chat history
-if "messages" not in st.session_state:
-    st.session_state.messages = []
+# Initialize session state for chat history & summarized memory
+if "chat_memory" not in st.session_state:
+    st.session_state.chat_memory = []  # stores last N messages or summarized context
+
+MAX_MEMORY = 5  # Keep only the last 5 messages in memory to save space
+
+def get_context():
+    """Combine last few messages as context for Gemini."""
+    return "\n".join([f"User: {m['user']}\nBot: {m['bot']}" for m in st.session_state.chat_memory])
+
+def chat_with_gemini(prompt: str) -> str:
+    """Generate response using Gemini, including summarized context."""
+    context = get_context()
+    full_prompt = context + "\n\n" + prompt if context else prompt
+    response = gemini_model.generate_content(full_prompt)
+    return response.text
 
 # Input container
 with st.container():
@@ -82,14 +91,18 @@ if send_button and user_input.strip() != "":
             f"You are a cool, improvement-focused mental wellness AI. The user feels {mood}: {user_input}. "
             "Do NOT just sympathize; provide practical advice or perspective to improve their mental wellness."
         )
+
     reply = chat_with_gemini(prompt)
 
-    # Append messages to session state
-    st.session_state.messages.append({"user": user_input, "bot": reply, "mood": mood})
+    # Append message to memory (keeping it small)
+    st.session_state.chat_memory.append({"user": user_input, "bot": reply, "mood": mood})
+    if len(st.session_state.chat_memory) > MAX_MEMORY:
+        st.session_state.chat_memory.pop(0)  # remove oldest to save memory
 
-# Display chat history dynamically
-for chat in st.session_state.messages:
+# Display chat dynamically
+for chat in st.session_state.chat_memory:
     with st.chat_message("user"):
         st.markdown(f"**You:** {chat['user']}")
     with st.chat_message("assistant"):
         st.markdown(f"**Bot:** {chat['bot']}")
+
