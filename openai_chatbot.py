@@ -57,7 +57,7 @@ st.title("🧠 Youth Mental Wellness Chatbot")
 if "chat_memory" not in st.session_state:
     st.session_state.chat_memory = []
 
-MAX_MEMORY = 10  # store only last 5 mood-related messages
+MAX_MEMORY = 10  # Store only last 10 mood-related messages
 
 def get_context():
     """Combine last few messages as context for Gemini."""
@@ -68,7 +68,9 @@ def chat_with_gemini(prompt: str) -> str:
     response = gemini_model.generate_content(prompt)
     return response.text
 
-# Display chat history first
+# -------------------------
+# Display previous chat history
+# -------------------------
 for chat in st.session_state.chat_memory:
     with st.chat_message("user"):
         st.markdown(f"**You:** {chat['user']}")
@@ -76,7 +78,7 @@ for chat in st.session_state.chat_memory:
         st.markdown(f"**Bot:** {chat['bot']}")
 
 # -------------------------
-# 💬 Input container moved to the bottom
+# 💬 Input container at the bottom
 # -------------------------
 user_input = st.chat_input("💬 Type a message...")
 
@@ -108,6 +110,14 @@ if user_input:
             st.session_state.chat_memory.pop(0)
 
     else:
-        # Treat as factual/general input — no context
+        # Treat as factual/general input — no chat context
         reply = chat_with_gemini(user_input)
-    
+
+    # -------------------------
+    # Display the current message immediately
+    # -------------------------
+    with st.chat_message("user"):
+        st.markdown(f"**You:** {user_input}")
+    with st.chat_message("assistant"):
+        st.markdown(f"**Bot:** {reply}")
+
