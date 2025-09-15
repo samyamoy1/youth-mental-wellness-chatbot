@@ -54,14 +54,8 @@ st.set_page_config(page_title="Youth Mental Wellness Chatbot", page_icon="🧠",
 st.title("🧠 Youth Mental Wellness Chatbot")
 
 # Initialize session state for chat memory
-# Initialize chat history
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-
-# Display chat messages from history on app rerun
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
+if "chat_memory" not in st.session_state:
+    st.session_state.chat_memory = []
 
 MAX_MEMORY = 3  # Keep last 3 messages for context
 MAX_CHARS = 200  # Truncate each message to 200 chars
