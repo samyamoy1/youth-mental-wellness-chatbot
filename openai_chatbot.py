@@ -57,7 +57,7 @@ st.title("🧠 Youth Mental Wellness Chatbot")
 if "chat_memory" not in st.session_state:
     st.session_state.chat_memory = []
 
-MAX_MEMORY = 3  # store only last 5 mood-related messages
+MAX_MEMORY = 10  # store only last 5 mood-related messages
 
 def get_context():
     """Combine last few messages as context for Gemini."""
