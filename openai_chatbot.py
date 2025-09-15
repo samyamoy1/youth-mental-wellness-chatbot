@@ -111,5 +111,3 @@ if user_input:
         # Treat as factual/general input — no context
         reply = chat_with_gemini(user_input)
     
-    # Rerun the script to display the new messages and clear the input box
-    st.experimental_rerun()
