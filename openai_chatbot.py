@@ -1,55 +1,54 @@
 import streamlit as st
 import google.generativeai as genai
-import pandas as pd
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.linear_model import LogisticRegression
+from transformers import pipeline
 
 # -------------------------
-# 🔑 Configure Gemini API using Streamlit Secrets
+# ⚙️ Configure Gemini API
 # -------------------------
 genai.configure(api_key=st.secrets["gemini_api_key"])
 gemini_model = genai.GenerativeModel("gemini-1.5-flash")
 
 # -------------------------
-# 🧠 Simple ML Sentiment Model (toy training)
+# 🧠 Sentiment Analyzer (HuggingFace)
 # -------------------------
-training_data = {
-    "text": [
-        "I am feeling very happy today",
-        "Life is beautiful and I am excited",
-        "I am so sad and depressed",
-        "I feel anxious about exams",
-        "I am stressed and worried",
-        "Everything is going well",
-        "I feel alone and hopeless",
-        "I am confident and strong"
-    ],
-    "label": [
-        "positive", "positive",
-        "negative", "negative",
-        "negative", "positive",
-        "negative", "positive"
-    ]
-}
-
-df = pd.DataFrame(training_data)
-vectorizer = TfidfVectorizer()
-X = vectorizer.fit_transform(df["text"])
-y = df["label"]
-
-ml_model = LogisticRegression()
-ml_model.fit(X, y)
+sentiment_analyzer = pipeline("sentiment-analysis")
 
 def predict_mood(user_input: str) -> str:
-    X_test = vectorizer.transform([user_input])
-    return ml_model.predict(X_test)[0]
+    result = sentiment_analyzer(user_input)[0]["label"]
+    return result.lower()   # "positive", "negative", "neutral"
 
 # -------------------------
-# 🤖 Gemini Chat Function
+# 🤖 Gemini Response
 # -------------------------
-def chat_with_gemini(prompt: str) -> str:
+def chat_with_gemini(user_input: str, mood: str, history: list) -> str:
+    # Convert history into text
+    history_text = "\n".join([f"User: {h['user']}\nBot: {h['bot']}" for h in history[-3:]])
+
+    # Mood-based style guide
+    if mood == "positive":
+        style = "Celebrate their happiness, use cheerful energy and emojis like 😊🌟."
+    elif mood == "negative":
+        style = "Be extra gentle, empathetic, and comforting 💙. Acknowledge their struggle."
+    else:
+        style = "Respond in a warm, neutral, caring tone."
+
+    prompt = f"""
+You are a supportive friend for youth mental wellness.
+- Speak casually, like a kind and empathetic buddy.
+- Always first acknowledge how they feel.
+- Keep sentences short and natural, not robotic.
+- {style}
+
+Conversation so far:
+{history_text}
+
+Now, reply to the user's new message.
+
+User: {user_input}
+"""
+
     response = gemini_model.generate_content(prompt)
-    return response.text
+    return response.text.strip()
 
 # -------------------------
 # 🌐 Streamlit UI
@@ -59,24 +58,34 @@ st.set_page_config(page_title="Youth Mental Wellness Chatbot", page_icon="🧠",
 st.title("🧠 Youth Mental Wellness Chatbot")
 st.write("An AI-powered, confidential, and empathetic chatbot for youth mental health support.")
 
+# Initialize session state for chat history
+if "history" not in st.session_state:
+    st.session_state["history"] = []
+
 user_input = st.text_area("💬 How are you feeling today?", "")
 
 if st.button("Send"):
     if user_input.strip() == "":
         st.warning("Please enter a message.")
     else:
-        # Step 1: ML prediction
+        # Step 1: Mood detection
         mood = predict_mood(user_input)
 
-        # Step 2: Generate Gemini response
-        prompt = f"You are a kind and empathetic mental health assistant. The user feels {mood}. Respond in a caring way: {user_input}"
-        reply = chat_with_gemini(prompt)
+        # Step 2: Get Gemini response
+        reply = chat_with_gemini(user_input, mood, st.session_state["history"])
 
-        st.subheader("🤗 Chatbot Response:")
-        st.write(reply)
+        # Save to history
+        st.session_state["history"].append({"user": user_input, "bot": reply})
 
-        st.subheader("📝 Mood Analysis (ML Model):")
-        st.write(f"Predicted Mood: **{mood.capitalize()}**")
+# -------------------------
+# 📜 Show Conversation
+# -------------------------
+if st.session_state["history"]:
+    st.subheader("🤗 Chat with your Wellness Buddy")
+    for chat in st.session_state["history"]:
+        st.markdown(f"**You:** {chat['user']}")
+        st.markdown(f"**Bot:** {chat['bot']}")
 
 st.markdown("---")
 st.caption("⚠️ Disclaimer: This chatbot is not a substitute for professional help. If you are struggling, please reach out to a licensed mental health professional.")
+
