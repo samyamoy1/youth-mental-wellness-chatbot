@@ -3,10 +3,10 @@ import google.generativeai as genai
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.naive_bayes import MultinomialNB
-from audiorecorder import audiorecorder
 from gtts import gTTS
 import tempfile
 import speech_recognition as sr
+from streamlit_audiorecorder import audiorecorder  # updated package
 
 # -------------------------
 # 🌟 Configure Gemini API
@@ -66,15 +66,14 @@ def speak_text(text):
 st.set_page_config(page_title="Youth Mental Wellness Chatbot", page_icon="🧠", layout="wide")
 st.title("🧠 Youth Mental Wellness Chatbot (Voice + Text)")
 
-# Initialize session state for chat memory
+# Initialize chat memory
 if "chat_memory" not in st.session_state:
     st.session_state.chat_memory = []
 
-MAX_MEMORY = 3  # Keep last 3 messages for context
-MAX_CHARS = 200  # Truncate each message to 200 chars
+MAX_MEMORY = 3
+MAX_CHARS = 200
 
 def get_context():
-    """Combine last few messages as context for Gemini with truncation."""
     recent = st.session_state.chat_memory[-MAX_MEMORY:]
     context = ""
     for m in recent:
@@ -84,7 +83,6 @@ def get_context():
     return context
 
 def chat_with_gemini(prompt: str) -> str:
-    """Generate response using Gemini with error handling."""
     try:
         response = gemini_model.generate_content(prompt)
         return response.text
@@ -92,7 +90,7 @@ def chat_with_gemini(prompt: str) -> str:
         return "⚠️ Sorry, I'm temporarily unable to respond. Please try again."
 
 # -------------------------
-# Display previous chat history
+# Display previous chat
 # -------------------------
 for chat in st.session_state.chat_memory:
     with st.chat_message("user"):
@@ -109,30 +107,35 @@ with col1:
     user_input = st.chat_input("Type a message...")
 
 with col2:
-    st.write("🎤 Or speak:")
-    audio = audiorecorder("🎙️ Start Recording", "⏹ Stop Recording")
+    st.write("🎤 Or record your voice:")
+    audio_bytes = audiorecorder("🎙️ Start Recording", "⏹ Stop Recording")
 
-    if len(audio) > 0:
-        audio.export("user_input.wav", format="wav")
+    if audio_bytes:
+        # Save to temp WAV file
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp_file:
+            tmp_file.write(audio_bytes)
+            tmp_filename = tmp_file.name
+
+        # Convert voice to text
         r = sr.Recognizer()
-        with sr.AudioFile("user_input.wav") as source:
+        with sr.AudioFile(tmp_filename) as source:
             audio_data = r.record(source)
             try:
                 user_input = r.recognize_google(audio_data)
                 st.success(f"🗣️ You said: {user_input}")
             except sr.UnknownValueError:
                 st.error("❌ Sorry, I couldn't understand that.")
+                user_input = None
             except sr.RequestError:
                 st.error("⚠️ Speech recognition service unavailable.")
+                user_input = None
 
 # -------------------------
-# Process User Input
+# Process Input
 # -------------------------
 if user_input:
-    # Predict mood
     mood = predict_mood(user_input)
 
-    # Decide how to call Gemini
     if mood in ["positive", "negative", "wrong_action"]:
         context = get_context()
         if mood == "wrong_action":
@@ -149,16 +152,15 @@ if user_input:
             )
         full_prompt = context + "\n\n" + prompt if context else prompt
         reply = chat_with_gemini(full_prompt)
-
         st.session_state.chat_memory.append({"user": user_input, "bot": reply, "mood": mood})
     else:
         reply = chat_with_gemini(user_input)
 
-    # Truncate memory if too long
+    # Truncate memory
     if len(st.session_state.chat_memory) > MAX_MEMORY:
         st.session_state.chat_memory = st.session_state.chat_memory[-MAX_MEMORY:]
 
-    # Display
+    # Display chat
     with st.chat_message("user"):
         st.markdown(f"**You:** {user_input}")
     with st.chat_message("assistant"):
