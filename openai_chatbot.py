@@ -6,7 +6,6 @@ from sklearn.naive_bayes import MultinomialNB
 from gtts import gTTS
 import tempfile
 import speech_recognition as sr
-from streamlit_audiorecorder import audiorecorder  # updated package
 
 # -------------------------
 # 🌟 Configure Gemini API
@@ -64,9 +63,9 @@ def speak_text(text):
 # 🌐 Streamlit UI
 # -------------------------
 st.set_page_config(page_title="Youth Mental Wellness Chatbot", page_icon="🧠", layout="wide")
-st.title("🧠 Youth Mental Wellness Chatbot (Voice + Text)")
+st.title("🧠 Youth Mental Wellness Chatbot (Text + Voice)")
 
-# Initialize chat memory
+# Initialize session state for chat memory
 if "chat_memory" not in st.session_state:
     st.session_state.chat_memory = []
 
@@ -99,7 +98,7 @@ for chat in st.session_state.chat_memory:
         st.markdown(f"**Bot:** {chat['bot']}")
 
 # -------------------------
-# 💬 Input (Text + Voice)
+# 💬 User Input (Text + Voice Upload)
 # -------------------------
 col1, col2 = st.columns([2,1])
 
@@ -107,18 +106,11 @@ with col1:
     user_input = st.chat_input("Type a message...")
 
 with col2:
-    st.write("🎤 Or record your voice:")
-    audio_bytes = audiorecorder("🎙️ Start Recording", "⏹ Stop Recording")
-
-    if audio_bytes:
-        # Save to temp WAV file
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp_file:
-            tmp_file.write(audio_bytes)
-            tmp_filename = tmp_file.name
-
-        # Convert voice to text
+    st.write("🎤 Or upload voice:")
+    audio_file = st.file_uploader("Upload your voice (WAV/MP3)", type=["wav","mp3"])
+    if audio_file is not None:
         r = sr.Recognizer()
-        with sr.AudioFile(tmp_filename) as source:
+        with sr.AudioFile(audio_file) as source:
             audio_data = r.record(source)
             try:
                 user_input = r.recognize_google(audio_data)
@@ -131,7 +123,7 @@ with col2:
                 user_input = None
 
 # -------------------------
-# Process Input
+# Process User Input
 # -------------------------
 if user_input:
     mood = predict_mood(user_input)
@@ -168,4 +160,3 @@ if user_input:
 
     # 🔊 Speak reply
     speak_text(reply)
-
