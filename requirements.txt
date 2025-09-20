@@ -5,3 +5,4 @@ scikit-learn
 gTTS
 SpeechRecognition
 pydub
+streamlit-audiorecorder
