@@ -6,6 +6,7 @@ from sklearn.naive_bayes import MultinomialNB
 from gtts import gTTS
 import tempfile
 import speech_recognition as sr
+from streamlit_audiorecorder import audiorecorder
 
 # -------------------------
 # 🌟 Configure Gemini API
@@ -63,7 +64,7 @@ def speak_text(text):
 # 🌐 Streamlit UI
 # -------------------------
 st.set_page_config(page_title="Youth Mental Wellness Chatbot", page_icon="🧠", layout="wide")
-st.title("🧠 Youth Mental Wellness Chatbot (Text + Voice)")
+st.title("🧠 Youth Mental Wellness Chatbot (Voice + Text)")
 
 # Initialize session state for chat memory
 if "chat_memory" not in st.session_state:
@@ -98,7 +99,7 @@ for chat in st.session_state.chat_memory:
         st.markdown(f"**Bot:** {chat['bot']}")
 
 # -------------------------
-# 💬 User Input (Text + Voice Upload)
+# 💬 User Input (Text + Live Voice)
 # -------------------------
 col1, col2 = st.columns([2,1])
 
@@ -106,11 +107,18 @@ with col1:
     user_input = st.chat_input("Type a message...")
 
 with col2:
-    st.write("🎤 Or upload voice:")
-    audio_file = st.file_uploader("Upload your voice (WAV/MP3)", type=["wav","mp3"])
-    if audio_file is not None:
+    st.write("🎤 Speak to type:")
+    audio_bytes = audiorecorder("🎙️ Start Recording", "⏹ Stop Recording")
+
+    if len(audio_bytes) > 0:
+        # Save recorded audio
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as f:
+            f.write(audio_bytes)
+            fpath = f.name
+
+        # Recognize speech
         r = sr.Recognizer()
-        with sr.AudioFile(audio_file) as source:
+        with sr.AudioFile(fpath) as source:
             audio_data = r.record(source)
             try:
                 user_input = r.recognize_google(audio_data)
@@ -123,7 +131,7 @@ with col2:
                 user_input = None
 
 # -------------------------
-# Process User Input
+# Process Input
 # -------------------------
 if user_input:
     mood = predict_mood(user_input)
@@ -160,3 +168,4 @@ if user_input:
 
     # 🔊 Speak reply
     speak_text(reply)
+
